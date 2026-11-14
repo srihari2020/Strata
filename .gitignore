@@ -1,0 +1,14 @@
+# Virtual Environment
+venv/
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# Project Data & Models
+data/
+index/
+*.pkl
+
+# OS generated files
+.DS_Store
