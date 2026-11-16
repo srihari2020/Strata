@@ -1,43 +1,35 @@
-import pymupdf
+import fitz  # PyMuPDF
+import pickle
 import os
-from indexer import StrataIndexer
 
-def extract_and_chunk_pdf(pdf_path, min_chunk_length=100):
+def extract_and_chunk_pdf(pdf_path, chunk_size=350, overlap=50):
     print(f"Opening PDF: {pdf_path}")
-    doc = pymupdf.open(pdf_path)
+    doc = fitz.open(pdf_path)
+    
+    all_text = ""
+    for page in doc:
+        all_text += page.get_text("text") + " "
+        
+    words = all_text.split()
     chunks = []
     
-    for page_num in range(len(doc)):
-        page = doc[page_num]
-        text = page.get_text("text")
-        
-        # Split page into paragraphs
-        paragraphs = text.split('\n\n')
-        
-        for p in paragraphs:
-            # Clean up whitespace and line breaks within paragraphs
-            clean_p = " ".join(p.split())
+    # Sliding window chunking
+    for i in range(0, len(words), chunk_size - overlap):
+        chunk = " ".join(words[i:i + chunk_size])
+        if len(chunk.split()) > 50:  # Ignore tiny trailing chunks
+            chunks.append(chunk)
             
-            # Filter out tiny snippets (like page numbers or tiny headers)
-            if len(clean_p) > min_chunk_length:
-                chunks.append(clean_p)
-                
-    print(f"Extracted {len(chunks)} viable text chunks from {len(doc)} pages.")
+    print(f"Extracted {len(chunks)} overlapping text chunks strictly under the limit.")
     return chunks
 
 if __name__ == "__main__":
-    # Ensure the data directory exists
-    os.makedirs('data', exist_ok=True)
+    os.makedirs("index", exist_ok=True)
     
-    # Specify the PDF file you want to read
-    pdf_filename = "data/report.pdf" 
+    # 1. Extract token-aware chunks
+    documents = extract_and_chunk_pdf("data/report.pdf")
     
-    if not os.path.exists(pdf_filename):
-        print(f"Error: Please place a PDF named 'report.pdf' inside the 'data/' folder.")
-    else:
-        documents = extract_and_chunk_pdf(pdf_filename)
-        
-        # Build the new index with the real data
-        print("Initializing StrataIndexer...")
-        indexer = StrataIndexer()
-        indexer.build_index(documents)
+    # 2. Save raw chunks temporarily for the indexer to pick up
+    with open('index/raw_documents.pkl', 'wb') as f:
+        pickle.dump(documents, f)
+    
+    print("Chunks saved. Run indexer.py next to rebuild the embeddings.")
