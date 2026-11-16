@@ -1,18 +1,22 @@
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from unsloth import FastLanguageModel
 from retriever import StrataRetriever
 
 class StrataGenerator:
-    def __init__(self, model_name="Qwen/Qwen2.5-1.5B-Instruct"):
-        print(f"Loading LLM: {model_name} onto RTX 5060...")
+    def __init__(self, model_path="strata-qwen-7b-archaeology-lora"):
+        print(f"Loading Fine-Tuned 7B LLM from {model_path}...")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_name, 
-            torch_dtype=torch.bfloat16, 
-            device_map="auto"
+        # Load the 4-bit model with your custom LoRA weights applied
+        self.model, self.tokenizer = FastLanguageModel.from_pretrained(
+            model_name = model_path,
+            max_seq_length = 4096,
+            dtype = None,
+            load_in_4bit = True,
         )
+        
+        # Enable Unsloth's highly optimized inference mode
+        FastLanguageModel.for_inference(self.model)
         
         self.retriever = StrataRetriever()
 
@@ -22,15 +26,10 @@ class StrataGenerator:
         context_text = "\n".join([f"- {r['document']}" for r in results])
         print(f"Retrieved Context:\n{context_text}\n")
         
-        system_prompt = (
-            "You are an expert archaeological AI assistant. Answer the user's question based strictly on the provided field notes. "
-            "If the context provided does not contain the answer, say 'I cannot answer this based on the provided field notes.' "
-            "Do not include information from the context that is irrelevant to the question."
-        )
-        user_prompt = f"Context (Field Notes):\n{context_text}\n\nQuestion: {query}"
+        user_prompt = f"{query}\nContext: {context_text}"
         
         messages = [
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": "You are an expert archaeological AI assistant."},
             {"role": "user", "content": user_prompt}
         ]
         
@@ -42,7 +41,7 @@ class StrataGenerator:
         
         model_inputs = self.tokenizer([text], return_tensors="pt").to(self.device)
         
-        print("Synthesizing answer...")
+        print("Synthesizing answer with custom 7B model...")
         with torch.no_grad():
             generated_ids = self.model.generate(
                 **model_inputs,
@@ -59,7 +58,7 @@ class StrataGenerator:
 
 if __name__ == "__main__":
     rag = StrataGenerator()
-    question = "According to the report, what specific disease was identified in the human skeleton at Balathal, and what were the radiocarbon dates?"
+    question = "What is the significance of the sterile ash layer at Balathal?"
     
     print("\n==================================")
     print(f"QUESTION: {question}")
