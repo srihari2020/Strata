@@ -17,6 +17,9 @@ class StrataGenerator:
         
         # Enable Unsloth's highly optimized inference mode
         FastLanguageModel.for_inference(self.model)
+        print(f"Total Parameters: {self.model.num_parameters():,}")
+        memory_gb = self.model.get_memory_footprint() / (1024**3)
+        print(f"Model Size in VRAM: {memory_gb:.2f} GB")
         
         self.retriever = StrataRetriever()
 
