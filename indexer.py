@@ -7,31 +7,29 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import os
 
 class StrataIndexer:
-    def __init__(self, embed_model_name='all-MiniLM-L6-v2', num_clusters=3):
-        print(f"Loading embedding model: {embed_model_name}...")
-        # Automatically uses GPU if available
-        self.embedder = SentenceTransformer(embed_model_name)
+    def __init__(self, embed_model_name='BAAI/bge-large-en-v1.5', num_clusters=3):
+        print(f"Loading Qwen embedding model: {embed_model_name} in fp16...")
+        self.embedder = SentenceTransformer(
+            embed_model_name,
+            model_kwargs={"torch_dtype": torch.float16},
+            trust_remote_code=False
+        )
         self.num_clusters = num_clusters
         self.tfidf_vectorizer = TfidfVectorizer(stop_words='english')
         self.kmeans = KMeans(n_clusters=self.num_clusters, random_state=42)
         
     def build_index(self, documents):
         print(f"Processing {len(documents)} documents...")
-        
-        # 1. PyTorch Semantic Embeddings
         print("Generating dense embeddings on GPU...")
         embeddings = self.embedder.encode(documents, convert_to_tensor=True)
         embeddings_np = embeddings.cpu().numpy()
         
-        # 2. Sklearn Semantic Clustering
         print("Clustering documents by archaeological theme...")
         cluster_labels = self.kmeans.fit_predict(embeddings_np)
         
-        # 3. Sklearn TF-IDF (Sparse matrix for exact keyword/typology matches)
         print("Building TF-IDF sparse matrix...")
         tfidf_matrix = self.tfidf_vectorizer.fit_transform(documents)
         
-        # 4. Save everything to disk for the Retriever to use later
         index_data = {
             'documents': documents,
             'embeddings': embeddings_np,
@@ -46,16 +44,8 @@ class StrataIndexer:
             pickle.dump(index_data, f)
             
         print("Index successfully built and saved to 'index/strata_index.pkl'")
-        
-        # Preview the clusters
-        for i in range(self.num_clusters):
-            print(f"\n--- Cluster {i} ---")
-            cluster_docs = [documents[j] for j in range(len(documents)) if cluster_labels[j] == i]
-            for doc in cluster_docs[:2]: # Show first 2 of each cluster
-                print(f"- {doc}")
 
 if __name__ == "__main__":
-    # Synthetic archaeological dataset
     sample_data = [
         "Context [1045] revealed a dark grey silty clay containing fragmented Terra Sigillata (Dragendorff 37).",
         "Trench 4 yielded significant quantities of Samian ware pottery dating to the late 1st century AD.",
@@ -64,6 +54,5 @@ if __name__ == "__main__":
         "Radiocarbon dating of the human mandible (Sample OXA-1234) suggests a late Neolithic burial practice.",
         "Osteological analysis of the remains in Grave 5 indicates severe joint disease, likely osteoarthritis."
     ]
-    
     indexer = StrataIndexer()
     indexer.build_index(sample_data)
