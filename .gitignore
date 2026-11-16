@@ -15,3 +15,4 @@ index/
 outputs/
 strata-qwen-7b-archaeology-lora*/
 unsloth_compiled_cache/
+strata_qwen_7b_archaeology_gguf/
