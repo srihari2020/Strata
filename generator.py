@@ -10,65 +10,35 @@ class StrataGenerator:
         # Load the 4-bit model with your custom LoRA weights applied
         self.model, self.tokenizer = FastLanguageModel.from_pretrained(
             model_name = model_path,
-            max_seq_length = 4096,
+            max_seq_length = 8192,
             dtype = None,
             load_in_4bit = True,
         )
         
         # Enable Unsloth's highly optimized inference mode
         FastLanguageModel.for_inference(self.model)
-        print(f"Total Parameters: {self.model.num_parameters():,}")
-        memory_gb = self.model.get_memory_footprint() / (1024**3)
-        print(f"Model Size in VRAM: {memory_gb:.2f} GB")
         
+        # Initialize the BAAI dense embedding retriever
         self.retriever = StrataRetriever()
 
-    def ask(self, query):
-        print(f"\nSearching index for: '{query}'...")
-        results = self.retriever.search(query, top_k=2)
-        context_text = "\n".join([f"- {r['document']}" for r in results])
-        print(f"Retrieved Context:\n{context_text}\n")
-        
-        user_prompt = f"{query}\nContext: {context_text}"
-        
-        messages = [
-            {"role": "system", "content": "You are an expert archaeological AI assistant."},
-            {"role": "user", "content": user_prompt}
-        ]
-        
-        text = self.tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=True
+    def generate_answer(self, question, context):
+        prompt = (
+            f"You are Strata, a highly intelligent archaeological AI assistant.\n"
+            f"First, attempt to answer the user's question using the Context provided below.\n"
+            f"If the Context does not contain the answer, use your broad general knowledge to provide a helpful, informative response, but politely note that the information comes from your general knowledge rather than the Strata database.\n\n"
+            f"Context:\n{context}\n\n"
+            f"Question: {question}\n"
         )
         
-        model_inputs = self.tokenizer([text], return_tensors="pt").to(self.device)
-        
-        print("Synthesizing answer with custom 7B model...")
-        with torch.no_grad():
-            generated_ids = self.model.generate(
-                **model_inputs,
-                max_new_tokens=150,
-                temperature=0.3,
-                do_sample=True
-            )
-            
-        generated_ids = [
-            output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
+        messages = [
+            {"role": "system", "content": "You are a helpful and expert AI assistant."},
+            {"role": "user", "content": prompt}
         ]
         
-        return self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
-
-if __name__ == "__main__":
-    rag = StrataGenerator()
-    question = "What is the earliest widely accepted evidence for leprosy according to the text?"
-    
-    print("\n==================================")
-    print(f"QUESTION: {question}")
-    print("==================================")
-    
-    answer = rag.ask(question)
-    
-    print("==================================")
-    print(f"STRATA AI ANSWER:\n{answer}")
-    print("==================================")
+        text = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        inputs = self.tokenizer([text], return_tensors="pt").to(self.device)
+        
+        with torch.no_grad():
+            outputs = self.model.generate(**inputs, max_new_tokens=400, temperature=0.4)
+            
+        return self.tokenizer.batch_decode(outputs[:, inputs.input_ids.shape[1]:], skip_special_tokens=True)[0]

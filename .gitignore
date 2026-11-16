@@ -1,18 +1,24 @@
-# Virtual Environment
+# Environments
 venv/
-
-# Python Cache
 __pycache__/
-*.pyc
 
-# Project Data & Models
-data/
+# Model Weights (These go to Hugging Face)
+strata-qwen-7b-archaeology-lora-production/
+strata_qwen_7b_archaeology_gguf/
+
+# Databases and Raw Data
+chroma_db/
 index/
+data/*.pdf
+data/*.txt
 *.pkl
 
-# OS generated files
+# OS Files
 .DS_Store
-outputs/
-strata-qwen-7b-archaeology-lora*/
+
+# Extra Model Weights & Caches
+strata-qwen-7b-archaeology-lora/
+strata_qwen_7b_archaeology/
 unsloth_compiled_cache/
-strata_qwen_7b_archaeology_gguf/
+.ipynb_checkpoints/
+outputs/
