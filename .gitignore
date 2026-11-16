@@ -12,3 +12,6 @@ index/
 
 # OS generated files
 .DS_Store
+outputs/
+strata-qwen-7b-archaeology-lora*/
+unsloth_compiled_cache/
